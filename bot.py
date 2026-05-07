@@ -27,7 +27,7 @@ def _get_required_env(name: str) -> str:
     return value
 
 
-TOKEN = _get_required_env("DISCORD_TOKEN")
+TOKEN = _get_required_env("BOT_TOKEN")
 CONFIG_PATH = Path(os.getenv("CONFIG_PATH", "reaction_role_config.json"))
 
 
