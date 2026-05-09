@@ -2,11 +2,12 @@
   "canvas": {
     "width": 1200,
     "height": 150,
-    "show_base_image": false
+    "show_base_image": true
   },
+  "disable_all_shadows": true,
   "nickname_style": {
     "uppercase": true,
-    "max_display_length": 15,
+    "max_display_length": 17,
     "ellipsis": "..."
   },
   "fonts": {

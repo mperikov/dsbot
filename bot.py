@@ -43,6 +43,7 @@ KILLFEED_BASE_IMAGE_PATH = Path(os.getenv("KILLFEED_BASE_IMAGE_PATH", "assets/ki
 KILLFEED_LAYOUT_PATH = Path(os.getenv("KILLFEED_LAYOUT_PATH", "killfeed_layout.json"))
 KILLFEED_ASSETS_DIR = Path(os.getenv("KILLFEED_ASSETS_DIR", "assets"))
 KILLFEED_WEAPONS_DIR = Path(os.getenv("KILLFEED_WEAPONS_DIR", str(KILLFEED_ASSETS_DIR / "weapons")))
+KILLFEED_WEAPON_GROUPS_PATH = Path(os.getenv("KILLFEED_WEAPON_GROUPS_PATH", "killfeed_weapon_groups.json"))
 SYNC_GUILD_ID = os.getenv("SYNC_GUILD_ID")
 
 
@@ -187,6 +188,83 @@ def _load_killfeed_config() -> dict[str, dict[str, int]]:
         except (TypeError, ValueError):
             continue
     return result
+
+
+def _normalize_weapon_key(weapon_name: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "", weapon_name.lower())
+
+
+def ensure_killfeed_weapon_groups_config(config_path: Path) -> None:
+    if config_path.exists():
+        return
+    default_cfg = {
+        "default_base_image": str(KILLFEED_BASE_IMAGE_PATH).replace("\\", "/"),
+        "groups": [
+            {
+                "name": "sniper",
+                "base_image": "assets/killfeed_base.png",
+                "weapons": ["M82", "AX50", "DVL-10", "GM6-LYNX"],
+            }
+        ],
+    }
+    with config_path.open("w", encoding="utf-8") as f:
+        json.dump(default_cfg, f, ensure_ascii=False, indent=2)
+
+
+def _resolve_group_base_image(path_value: str, groups_path: Path) -> Path:
+    candidate = Path(path_value)
+    if candidate.is_absolute():
+        return candidate
+    return (groups_path.parent / candidate).resolve()
+
+
+def _load_weapon_group_base_images(config_path: Path) -> tuple[Path, dict[str, Path]]:
+    default_base = KILLFEED_BASE_IMAGE_PATH
+    mapping: dict[str, Path] = {}
+    if not config_path.exists():
+        return default_base, mapping
+    try:
+        with config_path.open("r", encoding="utf-8") as f:
+            raw = json.load(f)
+    except (OSError, json.JSONDecodeError):
+        logger.warning("Invalid killfeed weapon groups config: %s", config_path)
+        return default_base, mapping
+    if not isinstance(raw, dict):
+        return default_base, mapping
+
+    default_raw = raw.get("default_base_image")
+    if isinstance(default_raw, str) and default_raw.strip():
+        default_base = _resolve_group_base_image(default_raw.strip(), config_path)
+
+    groups_raw = raw.get("groups")
+    if not isinstance(groups_raw, list):
+        return default_base, mapping
+
+    for group in groups_raw:
+        if not isinstance(group, dict):
+            continue
+        base_raw = group.get("base_image")
+        weapons_raw = group.get("weapons")
+        if not isinstance(base_raw, str) or not base_raw.strip() or not isinstance(weapons_raw, list):
+            continue
+        base_path = _resolve_group_base_image(base_raw.strip(), config_path)
+        for weapon in weapons_raw:
+            if not isinstance(weapon, str) or not weapon.strip():
+                continue
+            key = _normalize_weapon_key(weapon)
+            if key:
+                mapping[key] = base_path
+    return default_base, mapping
+
+
+def _killfeed_base_image_for_weapon(weapon_name: str) -> Path:
+    default_base, mapping = _load_weapon_group_base_images(KILLFEED_WEAPON_GROUPS_PATH)
+    key = _normalize_weapon_key(weapon_name)
+    chosen = mapping.get(key, default_base)
+    if chosen.exists():
+        return chosen
+    logger.warning("Killfeed base image not found, fallback to default: %s", chosen)
+    return KILLFEED_BASE_IMAGE_PATH
 
 
 def _save_killfeed_config(config: dict[str, dict[str, int]]) -> None:
@@ -344,7 +422,12 @@ async def on_ready() -> None:
 @bot.event
 async def setup_hook() -> None:
     ensure_killfeed_layout_config(KILLFEED_LAYOUT_PATH)
+    ensure_killfeed_weapon_groups_config(KILLFEED_WEAPON_GROUPS_PATH)
     ensure_killfeed_template(KILLFEED_BASE_IMAGE_PATH, KILLFEED_LAYOUT_PATH)
+    default_base, grouped = _load_weapon_group_base_images(KILLFEED_WEAPON_GROUPS_PATH)
+    ensure_killfeed_template(default_base, KILLFEED_LAYOUT_PATH)
+    for grouped_base in set(grouped.values()):
+        ensure_killfeed_template(grouped_base, KILLFEED_LAYOUT_PATH)
 
     if not _status_timeout_watcher.is_running():
         _status_timeout_watcher.start()
@@ -713,13 +796,14 @@ async def on_message(message: discord.Message) -> None:
                 victim_out = _name_with_optional_steam_link(player_name, victim_url)
                 killer_out = _name_with_optional_steam_link(killer_name, killer_url)
                 distance_display = _format_distance_whole_meters(distance)
+                base_image_for_weapon = _killfeed_base_image_for_weapon(gun_name)
                 try:
                     image_buffer = render_killfeed_card(
                         player_name=player_name,
                         killer_name=killer_name,
                         weapon_name=gun_name,
                         distance_meters=distance,
-                        base_image_path=KILLFEED_BASE_IMAGE_PATH,
+                        base_image_path=base_image_for_weapon,
                         layout_config_path=KILLFEED_LAYOUT_PATH,
                         assets_dir=KILLFEED_ASSETS_DIR,
                         weapons_dir=KILLFEED_WEAPONS_DIR,

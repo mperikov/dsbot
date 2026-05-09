@@ -51,6 +51,7 @@ def ensure_killfeed_layout_config(layout_config_path: Path) -> None:
     layout_config_path.parent.mkdir(parents=True, exist_ok=True)
     default_layout = {
         "canvas": dict(_default_canvas()),
+        "disable_all_shadows": False,
         "footer_colors": {
             "distance": [220, 235, 255, 255],
             "weapon": [255, 210, 160, 255],
@@ -348,6 +349,8 @@ def _load_killfeed_layout_bundle(
 
     merged = _merge_layout_slots(cleaned)
     _apply_footer_text_colors(merged, raw_user, cleaned)
+    if bool(raw_user.get("disable_all_shadows", False)):
+        _disable_all_slot_shadows(merged)
     return merged, nickname_style, fonts, canvas
 
 
@@ -387,6 +390,14 @@ def _apply_footer_text_colors(merged: dict[str, dict], raw_user: dict, cleaned: 
         if wcol is not None:
             merged["footer_weapon"] = dict(merged["footer_weapon"])
             merged["footer_weapon"]["color"] = wcol
+
+
+def _disable_all_slot_shadows(merged: dict[str, dict]) -> None:
+    """Force-disable shadows in all known slots when global flag is enabled."""
+    for key in ("victim", "killer", "weapon", "footer_distance", "footer_weapon"):
+        slot = merged.get(key)
+        if isinstance(slot, dict):
+            slot["shadow"] = False
 
 
 def _footer_slots_from_legacy(legacy: dict) -> tuple[dict, dict]:
