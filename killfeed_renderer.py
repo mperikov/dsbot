@@ -483,7 +483,18 @@ def _resolve_font_file(candidate: str, assets_dir: Path | None) -> Path | None:
     cwd_p = Path.cwd() / trimmed
     if cwd_p.is_file():
         return cwd_p
-    return _find_system_font_file(trimmed)
+    sys_font = _find_system_font_file(trimmed)
+    if sys_font is not None:
+        return sys_font
+    # Times New Roman is not redistributable; use bundled Tinos (OFL) if layout asks for times.ttf.
+    if Path(trimmed).name.lower() == "times.ttf":
+        for bundled in (
+            (assets_dir / "fonts" / "Tinos-Regular.ttf") if assets_dir is not None else None,
+            Path.cwd() / "assets" / "fonts" / "Tinos-Regular.ttf",
+        ):
+            if bundled is not None and bundled.is_file():
+                return bundled
+    return None
 
 
 def _font_candidates_for_slot(slot: dict | None, fonts_config: dict) -> list[str]:

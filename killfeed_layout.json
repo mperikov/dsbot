@@ -7,11 +7,11 @@
   "disable_all_shadows": true,
   "nickname_style": {
     "uppercase": true,
-    "max_display_length": 17,
+    "max_display_length": 15,
     "ellipsis": "..."
   },
   "fonts": {
-    "default": "times.ttf",
+    "default": "assets/fonts/Tinos-Regular.ttf",
     "fallback_paths": ["assets/fonts/OpenSans-VF.ttf"]
   },
   "footer_colors": {
@@ -22,8 +22,8 @@
     "x": 1025,
     "y": 33,
     "max_width": 250,
-    "font_size": 30,
-    "min_font_size": 30,
+    "font_size": 32,
+    "min_font_size": 32,
     "color": [0, 0, 0, 255],
     "shadow": true,
     "shadow_offset_x": 23,
@@ -40,8 +40,8 @@
     "x": 175,
     "y": 33,
     "max_width": 250,
-    "font_size": 30,
-    "min_font_size": 30,
+    "font_size": 32,
+    "min_font_size": 32,
     "color": [0, 0, 0, 255],
     "shadow": true,
     "shadow_offset_x": 23,
@@ -93,8 +93,8 @@
     "text_align": "center",
     "canvas_center_x": true,
     "margin_bottom": 27,
-    "font_size": 30,
-    "min_font_size": 30,
+    "font_size": 32,
+    "min_font_size": 32,
     "max_width": 250,
     "use_weapon_accent_color": false,
     "shadow": false,
