@@ -34,7 +34,7 @@
     "background_padding_x": 16,
     "background_padding_y": 5,
     "background_radius": 10,
-    "bold": true
+    "bold": false
   },
   "killer": {
     "x": 175,
@@ -52,7 +52,7 @@
     "background_padding_x": 16,
     "background_padding_y": 5,
     "background_radius": 10,
-    "bold": true
+    "bold": false
   },
   "weapon": {
     "x": 600,
@@ -102,6 +102,6 @@
     "shadow_offset_y": 11,
     "shadow_color": [0, 0, 0, 70],
     "color": [0, 0, 0, 255],
-    "bold": true
+    "bold": false
   }
 }
