@@ -97,6 +97,7 @@ def ensure_killfeed_layout_config(layout_config_path: Path) -> None:
             "y": 210,
             "max_width": 360,
             "max_height": 150,
+            "stretch_to_max_width": False,
             "shadow": False,
             "shadow_offset_x": 4,
             "shadow_offset_y": 4,
@@ -251,6 +252,7 @@ def _default_layout_slots() -> dict[str, dict]:
             "y": 210,
             "max_width": 360,
             "max_height": 150,
+            "stretch_to_max_width": False,
             "shadow": False,
             "shadow_offset_x": 4,
             "shadow_offset_y": 4,
@@ -739,11 +741,20 @@ def _paste_weapon_centered(base: Image.Image, weapon: Image.Image, slot: dict) -
     w, h = weapon.size
     if w <= 0 or h <= 0 or mw <= 0 or mh <= 0:
         return
-    scale = min(mw / w, mh / h)
-    nw = max(1, int(round(w * scale)))
-    nh = max(1, int(round(h * scale)))
     weapon_rgba = weapon.convert("RGBA") if weapon.mode != "RGBA" else weapon
-    weapon_resized = weapon_rgba.resize((nw, nh), Image.Resampling.LANCZOS)
+    if bool(slot.get("stretch_to_max_width", False)):
+        nw = max(1, mw)
+        nh_prop = max(1, int(round(h * (nw / w))))
+        if nh_prop <= mh:
+            nh = nh_prop
+        else:
+            nh = max(1, mh)
+        weapon_resized = weapon_rgba.resize((nw, nh), Image.Resampling.LANCZOS)
+    else:
+        scale = min(mw / w, mh / h)
+        nw = max(1, int(round(w * scale)))
+        nh = max(1, int(round(h * scale)))
+        weapon_resized = weapon_rgba.resize((nw, nh), Image.Resampling.LANCZOS)
     left = cx - nw // 2
     top = cy - nh // 2
     if bool(slot.get("shadow", False)):

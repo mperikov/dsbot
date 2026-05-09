@@ -2,7 +2,7 @@
   "default_base_image": "assets/gradients/gray.png",
   "groups": [
     {
-      "name": "127x99",
+      "name": "ruin",
       "base_image": "assets/gradients/red.png",
       "weapons": [
         "M82",
@@ -15,11 +15,17 @@
       "base_image": "assets/gradients/green.png",
       "weapons": [
         "DVL-10",
-        "AXMC",
         "C14 Timberwolf",
-        "DRD Kivaari",
         "L96A1",
-        "Orsis T-5000"
+        "Orsis T-5000",
+        "AXMC"
+      ]
+    },
+    {
+      "name": "middle",
+      "base_image": "assets/gradients/yellow.png",
+      "weapons": [
+        "DRD Kivaari"
       ]
     }
   ]
