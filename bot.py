@@ -11,6 +11,7 @@ from discord import app_commands
 from discord.ext import commands, tasks
 from dotenv import load_dotenv
 
+import map_channel
 from killfeed_renderer import (
     _format_distance_whole_meters,
     ensure_killfeed_layout_config,
@@ -553,6 +554,114 @@ async def killfeed_info(interaction: discord.Interaction) -> None:
     )
 
 
+@bot.tree.command(name="set_map_channel", description="Канал для координат на карте (строки «\"x y z\", r» или x y z r)")
+@app_commands.checks.has_permissions(manage_guild=True)
+async def set_map_channel(interaction: discord.Interaction, channel: discord.TextChannel) -> None:
+    if interaction.guild is None:
+        await interaction.response.send_message("Эта команда работает только на сервере.", ephemeral=True)
+        return
+
+    map_channel.set_map_channel_id(interaction.guild.id, channel.id)
+    await interaction.response.send_message(
+        f"Канал карты установлен: {channel.mention}. "
+        "Отправляйте строки вида `\"x y z\", r` (как в логах) или `x y z r`; "
+        "r — радиус в метрах. Пустые строки и `#` в начале строки игнорируются.",
+        ephemeral=True,
+    )
+
+
+@bot.tree.command(name="unset_map_channel", description="Отключить канал координат на карте")
+@app_commands.checks.has_permissions(manage_guild=True)
+async def unset_map_channel(interaction: discord.Interaction) -> None:
+    if interaction.guild is None:
+        await interaction.response.send_message("Эта команда работает только на сервере.", ephemeral=True)
+        return
+
+    removed = map_channel.remove_map_channel_id(interaction.guild.id)
+    if removed:
+        await interaction.response.send_message("Канал карты отключён.", ephemeral=True)
+        return
+
+    await interaction.response.send_message("Канал карты не был настроен.", ephemeral=True)
+
+
+@bot.tree.command(name="map_channel_info", description="Показать настроенный канал для координат на карте")
+@app_commands.checks.has_permissions(manage_guild=True)
+async def map_channel_info(interaction: discord.Interaction) -> None:
+    if interaction.guild is None:
+        await interaction.response.send_message("Эта команда работает только на сервере.", ephemeral=True)
+        return
+
+    channel_id = map_channel.get_map_channel_id(interaction.guild.id)
+    if channel_id is None:
+        await interaction.response.send_message("Канал карты не настроен.", ephemeral=True)
+        return
+
+    channel = interaction.guild.get_channel(channel_id)
+    channel_view = channel.mention if isinstance(channel, discord.TextChannel) else f"ID: {channel_id}"
+    await interaction.response.send_message(f"Текущий канал карты: {channel_view}", ephemeral=True)
+
+
+@bot.tree.command(name="set_map_marker_style", description="Цвет и альфа заливки кругов на карте для этого сервера")
+@app_commands.describe(
+    r="Красный (0–255)",
+    g="Зелёный (0–255)",
+    b="Синий (0–255)",
+    a="Альфа (1–255, меньше — прозрачнее)",
+)
+@app_commands.checks.has_permissions(manage_guild=True)
+async def set_map_marker_style(
+    interaction: discord.Interaction,
+    r: app_commands.Range[int, 0, 255],
+    g: app_commands.Range[int, 0, 255],
+    b: app_commands.Range[int, 0, 255],
+    a: app_commands.Range[int, 1, 255],
+) -> None:
+    if interaction.guild is None:
+        await interaction.response.send_message("Эта команда работает только на сервере.", ephemeral=True)
+        return
+
+    map_channel.set_marker_rgba(interaction.guild.id, r, g, b, a)
+    await interaction.response.send_message(
+        f"Цвет маркеров карты: RGBA({r}, {g}, {b}, {a}). Сохранено для этого сервера.",
+        ephemeral=True,
+    )
+
+
+@bot.tree.command(name="unset_map_marker_style", description="Сбросить цвет маркеров карты (брать из переменных окружения)")
+@app_commands.checks.has_permissions(manage_guild=True)
+async def unset_map_marker_style(interaction: discord.Interaction) -> None:
+    if interaction.guild is None:
+        await interaction.response.send_message("Эта команда работает только на сервере.", ephemeral=True)
+        return
+
+    removed = map_channel.clear_marker_style(interaction.guild.id)
+    if removed:
+        await interaction.response.send_message(
+            "Своя палитра сброшена. Используются `MAP_MARKER_R/G/B/ALPHA` из окружения (или встроенные значения по умолчанию).",
+            ephemeral=True,
+        )
+        return
+
+    await interaction.response.send_message("Для этого сервера не было отдельной настройки цвета.", ephemeral=True)
+
+
+@bot.tree.command(name="map_marker_style_info", description="Текущий RGBA маркеров карты для этого сервера")
+@app_commands.checks.has_permissions(manage_guild=True)
+async def map_marker_style_info(interaction: discord.Interaction) -> None:
+    if interaction.guild is None:
+        await interaction.response.send_message("Эта команда работает только на сервере.", ephemeral=True)
+        return
+
+    rgba = map_channel.get_marker_rgba(interaction.guild.id)
+    custom = map_channel.has_custom_marker_style(interaction.guild.id)
+    src = "настройка команды `/set_map_marker_style`" if custom else "переменные окружения / значения по умолчанию"
+    await interaction.response.send_message(
+        f"Маркеры карты: **RGBA** `{rgba[0]}, {rgba[1]}, {rgba[2]}, {rgba[3]}`\nИсточник: {src}.",
+        ephemeral=True,
+    )
+
+
 @bot.tree.command(name="bind_reaction", description="Bind reaction role for this server")
 @app_commands.checks.has_permissions(manage_roles=True)
 async def bind_reaction(
@@ -650,6 +759,12 @@ async def reaction_bind_info(interaction: discord.Interaction) -> None:
 @set_killfeed_channels.error
 @unset_killfeed_channels.error
 @killfeed_info.error
+@set_map_channel.error
+@unset_map_channel.error
+@map_channel_info.error
+@set_map_marker_style.error
+@unset_map_marker_style.error
+@map_marker_style_info.error
 async def admin_command_error(interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
     if isinstance(error, app_commands.MissingPermissions):
         await _safe_send_interaction_message(
@@ -821,6 +936,8 @@ async def on_message(message: discord.Message) -> None:
                     )
                 except discord.HTTPException:
                     logger.exception("on_message: failed to forward killfeed message")
+
+    await map_channel.handle_map_coordinate_message(message)
 
     await bot.process_commands(message)
 
