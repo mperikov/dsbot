@@ -12,6 +12,7 @@ from discord.ext import commands, tasks
 from dotenv import load_dotenv
 
 import map_channel
+import youtube_channel
 from killfeed_renderer import (
     _format_distance_whole_meters,
     ensure_killfeed_layout_config,
@@ -646,6 +647,56 @@ async def unset_map_marker_style(interaction: discord.Interaction) -> None:
     await interaction.response.send_message("Для этого сервера не было отдельной настройки цвета.", ephemeral=True)
 
 
+@bot.tree.command(
+    name="set_youtube_channel",
+    description="Канал только для ссылок на YouTube (остальное удаляется, на видео — 👍 и 👎)",
+)
+@app_commands.checks.has_permissions(manage_guild=True)
+async def set_youtube_channel(interaction: discord.Interaction, channel: discord.TextChannel) -> None:
+    if interaction.guild is None:
+        await interaction.response.send_message("Эта команда работает только на сервере.", ephemeral=True)
+        return
+
+    youtube_channel.set_youtube_channel_id(interaction.guild.id, channel.id)
+    await interaction.response.send_message(
+        f"YouTube-канал установлен: {channel.mention}. "
+        "Разрешены только сообщения со ссылкой на видео (youtube.com, youtu.be, shorts и т.п.).",
+        ephemeral=True,
+    )
+
+
+@bot.tree.command(name="unset_youtube_channel", description="Отключить модерацию YouTube-канала")
+@app_commands.checks.has_permissions(manage_guild=True)
+async def unset_youtube_channel(interaction: discord.Interaction) -> None:
+    if interaction.guild is None:
+        await interaction.response.send_message("Эта команда работает только на сервере.", ephemeral=True)
+        return
+
+    removed = youtube_channel.remove_youtube_channel_id(interaction.guild.id)
+    if removed:
+        await interaction.response.send_message("YouTube-канал отключён.", ephemeral=True)
+        return
+
+    await interaction.response.send_message("YouTube-канал не был настроен.", ephemeral=True)
+
+
+@bot.tree.command(name="youtube_channel_info", description="Показать настроенный YouTube-канал")
+@app_commands.checks.has_permissions(manage_guild=True)
+async def youtube_channel_info(interaction: discord.Interaction) -> None:
+    if interaction.guild is None:
+        await interaction.response.send_message("Эта команда работает только на сервере.", ephemeral=True)
+        return
+
+    channel_id = youtube_channel.get_youtube_channel_id(interaction.guild.id)
+    if channel_id is None:
+        await interaction.response.send_message("YouTube-канал не настроен.", ephemeral=True)
+        return
+
+    channel = interaction.guild.get_channel(channel_id)
+    channel_view = channel.mention if isinstance(channel, discord.TextChannel) else f"ID: {channel_id}"
+    await interaction.response.send_message(f"Текущий YouTube-канал: {channel_view}", ephemeral=True)
+
+
 @bot.tree.command(name="map_marker_style_info", description="Текущий RGBA маркеров карты для этого сервера")
 @app_commands.checks.has_permissions(manage_guild=True)
 async def map_marker_style_info(interaction: discord.Interaction) -> None:
@@ -765,6 +816,9 @@ async def reaction_bind_info(interaction: discord.Interaction) -> None:
 @set_map_marker_style.error
 @unset_map_marker_style.error
 @map_marker_style_info.error
+@set_youtube_channel.error
+@unset_youtube_channel.error
+@youtube_channel_info.error
 async def admin_command_error(interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
     if isinstance(error, app_commands.MissingPermissions):
         await _safe_send_interaction_message(
@@ -938,6 +992,7 @@ async def on_message(message: discord.Message) -> None:
                     logger.exception("on_message: failed to forward killfeed message")
 
     await map_channel.handle_map_coordinate_message(message)
+    await youtube_channel.handle_youtube_channel_message(message)
 
     await bot.process_commands(message)
 
