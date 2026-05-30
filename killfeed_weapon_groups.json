@@ -7,7 +7,10 @@
       "weapons": [
         "M82",
         "AX50",
-        "GM6-LYNX"
+        "GM6-LYNX",
+        "BFG50",
+        "M200",
+        "VSSK Vychlop"
       ]
     },
     {
@@ -18,14 +21,18 @@
         "C14 Timberwolf",
         "L96A1",
         "Orsis T-5000",
-        "AXMC"
+        "AXMC",
+        "DVL-10 Urbana"
       ]
     },
     {
       "name": "middle",
       "base_image": "assets/gradients/yellow.png",
       "weapons": [
-        "DRD Kivaari"
+        "DRD Kivaari",
+        "AS Val",
+        "MAR-10",
+        "MCX SPEAR"
       ]
     }
   ]
